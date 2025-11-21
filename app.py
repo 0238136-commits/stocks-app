@@ -16,7 +16,6 @@ import streamlit as st
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
 
-
 warnings.filterwarnings('ignore')
 
 # =============================
@@ -335,7 +334,7 @@ def scrape_yahoo_news(ticker: str) -> list:
                 news_items.append({'title': title, 'link': link, 'source': 'Yahoo Finance'})
         
         return news_items
-    except Exception as e:
+    except Exception:
         return []
 
 
@@ -377,7 +376,7 @@ def scrape_finviz_data(ticker: str) -> dict:
                     })
         
         return {'fundamentals': fundamentals, 'news': news_items}
-    except Exception as e:
+    except Exception:
         return {'fundamentals': {}, 'news': []}
 
 
@@ -489,9 +488,6 @@ if show_technical:
     with st.spinner("📊 Calculando indicadores técnicos..."):
         data_accion = calcular_indicadores_tecnicos(data_accion)
 
-# Continúa con el resto del código exactamente igual...
-# (El resto del código permanece idéntico desde "Info de la empresa" hasta el final)
-
 # =============================
 # Info de la empresa
 # =============================
@@ -518,14 +514,12 @@ st.markdown("---")
 
 ultimo_precio = float(data_accion['Close'].iloc[-1])
 cambio_diario = float(data_accion['Close'].pct_change().iloc[-1])
-
 volumen_raw = data_accion['Volume'].iloc[-1]
 
-# 🔧 Prevención contra valores inválidos
 try:
     volumen = float(volumen_raw)
 except:
-    volumen = 0.0  # fallback seguro
+    volumen = 0.0
 
 col1, col2, col3, col4, col5 = st.columns(5)
 
@@ -551,7 +545,6 @@ with col4:
 
 with col5:
     st.metric("📦 Volumen", f"{volumen/1e6:.1f}M")
-
 
 # =============================
 # Información corporativa
@@ -655,12 +648,11 @@ if finviz_data.get('fundamentals'):
     
     fund_data = finviz_data['fundamentals']
     
-    # Organizar en tabla
     if fund_data:
         cols_fund = st.columns(4)
         items = list(fund_data.items())
         
-        for idx, (key, value) in enumerate(items[:20]):  # Mostrar primeros 20
+        for idx, (key, value) in enumerate(items[:20]):
             col_idx = idx % 4
             with cols_fund[col_idx]:
                 st.metric(key, value)
@@ -671,7 +663,6 @@ if finviz_data.get('fundamentals'):
 st.markdown("---")
 st.subheader("🎯 Métricas de Riesgo y Rendimiento (Análisis Completo)")
 
-# Calcular métricas para diferentes periodos
 metricas_por_periodo = {}
 for periodo in periods_to_show:
     data_periodo = filtrar_por_periodo(data_accion, periodo)
@@ -686,7 +677,6 @@ for periodo in periods_to_show:
         )
         metricas_por_periodo[periodo] = metricas
 
-# Crear tabla comparativa
 if metricas_por_periodo:
     rows = []
     for periodo, metricas in metricas_por_periodo.items():
@@ -711,7 +701,6 @@ if metricas_por_periodo:
         hide_index=True
     )
     
-    # Métricas destacadas del último año
     if "1Y" in metricas_por_periodo:
         met_1y = metricas_por_periodo["1Y"]
         
@@ -746,7 +735,6 @@ if not data_velas.empty:
         subplot_titles=('Precio', 'Volumen', 'RSI')
     )
     
-    # Velas
     fig.add_trace(
         go.Candlestick(
             x=data_velas.index,
@@ -761,7 +749,6 @@ if not data_velas.empty:
         row=1, col=1
     )
     
-    # Medias móviles
     if 'SMA_20' in data_velas.columns:
         fig.add_trace(
             go.Scatter(x=data_velas.index, y=data_velas['SMA_20'], 
@@ -781,7 +768,6 @@ if not data_velas.empty:
             row=1, col=1
         )
     
-    # Bollinger Bands
     if 'BB_High' in data_velas.columns:
         fig.add_trace(
             go.Scatter(x=data_velas.index, y=data_velas['BB_High'], 
@@ -795,7 +781,6 @@ if not data_velas.empty:
             row=1, col=1
         )
     
-    # Volumen
     colors = []
     for _, row in data_velas.iterrows():
         try:
@@ -811,7 +796,6 @@ if not data_velas.empty:
         row=2, col=1
     )
     
-    # RSI
     if 'RSI' in data_velas.columns:
         fig.add_trace(
             go.Scatter(x=data_velas.index, y=data_velas['RSI'], 
@@ -867,60 +851,54 @@ if show_technical and 'RSI' in data_accion.columns:
             st.warning("📉 Señal bajista (MACD < Signal)")
     
     with col2:
-    st.markdown("### 🎯 Niveles de Soporte/Resistencia")
+        st.markdown("### 🎯 Niveles de Soporte/Resistencia")
+        
+        try:
+            precio_actual = float(data_accion["Close"].iloc[-1])
+        except Exception:
+            precio_actual = np.nan
+
+        high_52w_raw = data_accion["High"].tail(252).max()
+        low_52w_raw = data_accion["Low"].tail(252).min()
+
+        try:
+            high_52w = float(high_52w_raw)
+        except Exception:
+            high_52w = np.nan
+
+        try:
+            low_52w = float(low_52w_raw)
+        except Exception:
+            low_52w = np.nan
+
+        if np.isfinite(high_52w):
+            st.metric("Máximo 52 semanas", f"${high_52w:,.2f}")
+        else:
+            st.metric("Máximo 52 semanas", "N/D")
+
+        if np.isfinite(low_52w):
+            st.metric("Mínimo 52 semanas", f"${low_52w:,.2f}")
+        else:
+            st.metric("Mínimo 52 semanas", "N/D")
+
+        if np.isfinite(high_52w) and np.isfinite(low_52w):
+            rango = high_52w - low_52w
+            st.metric("Rango", f"${rango:,.2f}")
+        else:
+            st.metric("Rango", "N/D")
+
+        if np.isfinite(precio_actual) and np.isfinite(high_52w) and high_52w != 0:
+            pct_from_high = ((precio_actual - high_52w) / high_52w) * 100
+            st.metric("% desde máximo", f"{pct_from_high:.2f}%")
+        else:
+            st.metric("% desde máximo", "N/D")
+
+        if np.isfinite(precio_actual) and np.isfinite(low_52w) and low_52w != 0:
+            pct_from_low = ((precio_actual - low_52w) / low_52w) * 100
+            st.metric("% desde mínimo", f"{pct_from_low:.2f}%")
+        else:
+            st.metric("% desde mínimo", "N/D")
     
-    # Precio actual
-    try:
-        precio_actual = float(data_accion["Close"].iloc[-1])
-    except Exception:
-        precio_actual = np.nan
-
-    # Máximo y mínimo 52 semanas (últimos ~252 días hábiles)
-    high_52w_raw = data_accion["High"].tail(252).max()
-    low_52w_raw = data_accion["Low"].tail(252).min()
-
-    try:
-        high_52w = float(high_52w_raw)
-    except Exception:
-        high_52w = np.nan
-
-    try:
-        low_52w = float(low_52w_raw)
-    except Exception:
-        low_52w = np.nan
-
-    # Mostrar métricas de forma segura
-    if np.isfinite(high_52w):
-        st.metric("Máximo 52 semanas", f"${high_52w:,.2f}")
-    else:
-        st.metric("Máximo 52 semanas", "N/D")
-
-    if np.isfinite(low_52w):
-        st.metric("Mínimo 52 semanas", f"${low_52w:,.2f}")
-    else:
-        st.metric("Mínimo 52 semanas", "N/D")
-
-    if np.isfinite(high_52w) and np.isfinite(low_52w):
-        rango = high_52w - low_52w
-        st.metric("Rango", f"${rango:,.2f}")
-    else:
-        st.metric("Rango", "N/D")
-
-    # % desde máximo / mínimo solo si todo es válido
-    if np.isfinite(precio_actual) and np.isfinite(high_52w) and high_52w != 0:
-        pct_from_high = ((precio_actual - high_52w) / high_52w) * 100
-        st.metric("% desde máximo", f"{pct_from_high:.2f}%")
-    else:
-        st.metric("% desde máximo", "N/D")
-
-    if np.isfinite(precio_actual) and np.isfinite(low_52w) and low_52w != 0:
-        pct_from_low = ((precio_actual - low_52w) / low_52w) * 100
-        st.metric("% desde mínimo", f"{pct_from_low:.2f}%")
-    else:
-        st.metric("% desde mínimo", "N/D")
-
-    
-    # MACD Chart
     st.markdown("### 📈 MACD")
     fig_macd = go.Figure()
     fig_macd.add_trace(go.Scatter(
@@ -945,7 +923,6 @@ st.markdown("---")
 st.subheader(f"⚖️ Comparación vs {benchmark_ticker}")
 
 if not data_bench.empty:
-    # Base 100
     common_accion = data_accion[["Adj Close"]].rename(columns={"Adj Close": "Accion"})
     common_bench = data_bench[["Adj Close"]].rename(columns={"Adj Close": "Benchmark"})
     common = common_accion.join(common_bench, how="inner")
@@ -975,7 +952,6 @@ if not data_bench.empty:
         
         st.plotly_chart(fig_comp, use_container_width=True)
         
-        # Métricas comparativas
         rend_accion = (serie_accion.iloc[-1] / 100 - 1) * 100
         rend_bench = (serie_bench.iloc[-1] / 100 - 1) * 100
         outperformance = rend_accion - rend_bench
@@ -983,8 +959,7 @@ if not data_bench.empty:
         col1, col2, col3 = st.columns(3)
         col1.metric(f"Rendimiento {ticker}", f"{rend_accion:.2f}%")
         col2.metric(f"Rendimiento {benchmark_ticker}", f"{rend_bench:.2f}%")
-        col3.metric("Outperformance", f"{outperformance:+.2f}%", 
-                   delta=f"{outperformance:.2f}%" if outperformance > 0 else None)
+        col3.metric("Outperformance", f"{outperformance:+.2f}%")
 
 # =============================
 # Simulación Monte Carlo
@@ -1007,7 +982,6 @@ if show_montecarlo:
         )
     
     if not df_montecarlo.empty:
-        # Estadísticas
         precio_final_medio = df_montecarlo.iloc[-1].mean()
         precio_final_p5 = df_montecarlo.iloc[-1].quantile(0.05)
         precio_final_p95 = df_montecarlo.iloc[-1].quantile(0.95)
@@ -1019,10 +993,8 @@ if show_montecarlo:
         col3.metric("Escenario Pesimista (5%)", f"${precio_final_p5:.2f}")
         col4.metric("Escenario Optimista (95%)", f"${precio_final_p95:.2f}")
         
-        # Gráfico
         fig_mc = go.Figure()
         
-        # Algunas trayectorias de muestra
         for i in range(min(100, num_simulaciones)):
             fig_mc.add_trace(go.Scatter(
                 x=df_montecarlo.index,
@@ -1033,7 +1005,6 @@ if show_montecarlo:
                 hoverinfo='skip'
             ))
         
-        # Media
         fig_mc.add_trace(go.Scatter(
             x=df_montecarlo.index,
             y=df_montecarlo.mean(axis=1),
@@ -1042,7 +1013,6 @@ if show_montecarlo:
             line=dict(color='red', width=3)
         ))
         
-        # Percentiles
         fig_mc.add_trace(go.Scatter(
             x=df_montecarlo.index,
             y=df_montecarlo.quantile(0.95, axis=1),
@@ -1070,7 +1040,6 @@ if show_montecarlo:
         
         st.plotly_chart(fig_mc, use_container_width=True)
         
-        # Distribución final
         st.markdown("### 📊 Distribución de Precios Finales")
         fig_hist = go.Figure()
         fig_hist.add_trace(go.Histogram(
@@ -1087,7 +1056,6 @@ if show_montecarlo:
         )
         st.plotly_chart(fig_hist, use_container_width=True)
         
-        # Probabilidades
         prob_gain = (df_montecarlo.iloc[-1] > precio_actual).sum() / num_simulaciones * 100
         st.metric(
             "🎯 Probabilidad de ganancia",
@@ -1155,7 +1123,6 @@ fig_vol.update_layout(
 
 st.plotly_chart(fig_vol, use_container_width=True)
 
-# Estadísticas de volatilidad
 vol_actual = rolling_vol.iloc[-1]
 vol_promedio = rolling_vol.mean()
 vol_max = rolling_vol.max()
@@ -1226,7 +1193,6 @@ with col1:
     st.plotly_chart(fig_dist, use_container_width=True)
 
 with col2:
-    # Estadísticas
     mean_return = returns_vol.mean() * 100
     median_return = returns_vol.median() * 100
     std_return = returns_vol.std() * 100
@@ -1363,7 +1329,7 @@ with col2:
         )
 
 with col3:
-    if not df_montecarlo.empty and show_montecarlo:
+    if 'df_montecarlo' in locals() and not df_montecarlo.empty and show_montecarlo:
         csv_mc = df_montecarlo.to_csv()
         st.download_button(
             label="📥 Descargar simulación MC (CSV)",
