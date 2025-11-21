@@ -867,22 +867,58 @@ if show_technical and 'RSI' in data_accion.columns:
             st.warning("📉 Señal bajista (MACD < Signal)")
     
     with col2:
-        st.markdown("### 🎯 Niveles de Soporte/Resistencia")
-        
-        # Calcular niveles aproximados
-        precio_actual = data_accion['Close'].iloc[-1]
-        high_52w = data_accion['High'].tail(252).max()
-        low_52w = data_accion['Low'].tail(252).min()
-        
-        st.metric("Máximo 52 semanas", f"${high_52w:.2f}")
-        st.metric("Mínimo 52 semanas", f"${low_52w:.2f}")
-        st.metric("Rango", f"${high_52w - low_52w:.2f}")
-        
+    st.markdown("### 🎯 Niveles de Soporte/Resistencia")
+    
+    # Precio actual
+    try:
+        precio_actual = float(data_accion["Close"].iloc[-1])
+    except Exception:
+        precio_actual = np.nan
+
+    # Máximo y mínimo 52 semanas (últimos ~252 días hábiles)
+    high_52w_raw = data_accion["High"].tail(252).max()
+    low_52w_raw = data_accion["Low"].tail(252).min()
+
+    try:
+        high_52w = float(high_52w_raw)
+    except Exception:
+        high_52w = np.nan
+
+    try:
+        low_52w = float(low_52w_raw)
+    except Exception:
+        low_52w = np.nan
+
+    # Mostrar métricas de forma segura
+    if np.isfinite(high_52w):
+        st.metric("Máximo 52 semanas", f"${high_52w:,.2f}")
+    else:
+        st.metric("Máximo 52 semanas", "N/D")
+
+    if np.isfinite(low_52w):
+        st.metric("Mínimo 52 semanas", f"${low_52w:,.2f}")
+    else:
+        st.metric("Mínimo 52 semanas", "N/D")
+
+    if np.isfinite(high_52w) and np.isfinite(low_52w):
+        rango = high_52w - low_52w
+        st.metric("Rango", f"${rango:,.2f}")
+    else:
+        st.metric("Rango", "N/D")
+
+    # % desde máximo / mínimo solo si todo es válido
+    if np.isfinite(precio_actual) and np.isfinite(high_52w) and high_52w != 0:
         pct_from_high = ((precio_actual - high_52w) / high_52w) * 100
-        pct_from_low = ((precio_actual - low_52w) / low_52w) * 100
-        
         st.metric("% desde máximo", f"{pct_from_high:.2f}%")
+    else:
+        st.metric("% desde máximo", "N/D")
+
+    if np.isfinite(precio_actual) and np.isfinite(low_52w) and low_52w != 0:
+        pct_from_low = ((precio_actual - low_52w) / low_52w) * 100
         st.metric("% desde mínimo", f"{pct_from_low:.2f}%")
+    else:
+        st.metric("% desde mínimo", "N/D")
+
     
     # MACD Chart
     st.markdown("### 📈 MACD")
