@@ -15,7 +15,7 @@ from plotly.subplots import make_subplots
 import streamlit as st
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
-from scipy import stats
+
 
 warnings.filterwarnings('ignore')
 
