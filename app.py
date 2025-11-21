@@ -796,8 +796,15 @@ if not data_velas.empty:
         )
     
     # Volumen
-    colors = ['red' if data_velas['Close'].iloc[i] < data_velas['Open'].iloc[i] 
-              else 'green' for i in range(len(data_velas))]
+    colors = []
+    for _, row in data_velas.iterrows():
+        try:
+            close_val = float(row["Close"])
+            open_val = float(row["Open"])
+            colors.append("red" if close_val < open_val else "green")
+        except:
+            colors.append("gray")
+
     fig.add_trace(
         go.Bar(x=data_velas.index, y=data_velas['Volume'], 
                name='Volumen', marker_color=colors),
