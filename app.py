@@ -516,34 +516,25 @@ revenue_growth = info.get("revenueGrowth", None)
 # =============================
 st.markdown("---")
 
-# Valores crudos
-ultimo_precio_raw = data_accion['Close'].iloc[-1]
-cambio_diario_raw = data_accion['Close'].pct_change().iloc[-1]
-volumen = data_accion['Volume'].iloc[-1]
+ultimo_precio = float(data_accion['Close'].iloc[-1])
+cambio_diario = float(data_accion['Close'].pct_change().iloc[-1])
 
-# Convertir a float de forma segura
-try:
-    ultimo_precio = float(ultimo_precio_raw)
-except (TypeError, ValueError):
-    ultimo_precio = np.nan
+volumen_raw = data_accion['Volume'].iloc[-1]
 
+# 🔧 Prevención contra valores inválidos
 try:
-    cambio_diario = float(cambio_diario_raw)
-except (TypeError, ValueError):
-    cambio_diario = np.nan
+    volumen = float(volumen_raw)
+except:
+    volumen = 0.0  # fallback seguro
 
 col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
-    if np.isnan(ultimo_precio):
-        st.metric("💰 Precio Actual", "N/D", "N/D")
-    else:
-        delta_text = "N/D" if np.isnan(cambio_diario) else f"{cambio_diario*100:+.2f}%"
-        st.metric(
-            "💰 Precio Actual",
-            f"${ultimo_precio:,.2f}",
-            delta_text
-        )
+    st.metric(
+        "💰 Precio Actual",
+        f"${ultimo_precio:,.2f}",
+        f"{cambio_diario*100:+.2f}%"
+    )
 
 with col2:
     if market_cap:
@@ -553,19 +544,14 @@ with col2:
         st.metric("🏢 Market Cap", "N/D")
 
 with col3:
-    if pe_ratio:
-        st.metric("📊 P/E Ratio", f"{pe_ratio:.2f}x")
-    else:
-        st.metric("📊 P/E Ratio", "N/D")
+    st.metric("📊 P/E Ratio", f"{pe_ratio:.2f}x" if pe_ratio else "N/D")
 
 with col4:
-    if dividend_yield:
-        st.metric("💵 Dividend Yield", f"{dividend_yield*100:.2f}%")
-    else:
-        st.metric("💵 Dividend Yield", "N/D")
+    st.metric("💵 Dividend Yield", f"{dividend_yield*100:.2f}%" if dividend_yield else "N/D")
 
 with col5:
     st.metric("📦 Volumen", f"{volumen/1e6:.1f}M")
+
 
 # =============================
 # Información corporativa
