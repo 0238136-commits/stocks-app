@@ -515,18 +515,35 @@ revenue_growth = info.get("revenueGrowth", None)
 # Header con métricas clave
 # =============================
 st.markdown("---")
-ultimo_precio = data_accion['Close'].iloc[-1]
-cambio_diario = data_accion['Close'].pct_change().iloc[-1]
+
+# Valores crudos
+ultimo_precio_raw = data_accion['Close'].iloc[-1]
+cambio_diario_raw = data_accion['Close'].pct_change().iloc[-1]
 volumen = data_accion['Volume'].iloc[-1]
+
+# Convertir a float de forma segura
+try:
+    ultimo_precio = float(ultimo_precio_raw)
+except (TypeError, ValueError):
+    ultimo_precio = np.nan
+
+try:
+    cambio_diario = float(cambio_diario_raw)
+except (TypeError, ValueError):
+    cambio_diario = np.nan
 
 col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
-    st.metric(
-        "💰 Precio Actual",
-        f"${ultimo_precio:,.2f}",
-        f"{cambio_diario*100:+.2f}%"
-    )
+    if np.isnan(ultimo_precio):
+        st.metric("💰 Precio Actual", "N/D", "N/D")
+    else:
+        delta_text = "N/D" if np.isnan(cambio_diario) else f"{cambio_diario*100:+.2f}%"
+        st.metric(
+            "💰 Precio Actual",
+            f"${ultimo_precio:,.2f}",
+            delta_text
+        )
 
 with col2:
     if market_cap:
