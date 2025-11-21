@@ -15,7 +15,7 @@ from plotly.subplots import make_subplots
 import streamlit as st
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
-import ta
+from scipy import stats
 
 warnings.filterwarnings('ignore')
 
@@ -139,6 +139,102 @@ def descargar_precios(ticker: str, years: int = 5) -> pd.DataFrame:
         return pd.DataFrame()
 
 
+def calcular_rsi(prices, period=14):
+    """Calcula RSI manualmente"""
+    delta = prices.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
+
+def calcular_macd(prices, fast=12, slow=26, signal=9):
+    """Calcula MACD manualmente"""
+    ema_fast = prices.ewm(span=fast, adjust=False).mean()
+    ema_slow = prices.ewm(span=slow, adjust=False).mean()
+    macd = ema_fast - ema_slow
+    macd_signal = macd.ewm(span=signal, adjust=False).mean()
+    macd_hist = macd - macd_signal
+    return macd, macd_signal, macd_hist
+
+
+def calcular_bollinger_bands(prices, period=20, std_dev=2):
+    """Calcula Bollinger Bands manualmente"""
+    sma = prices.rolling(window=period).mean()
+    std = prices.rolling(window=period).std()
+    upper_band = sma + (std * std_dev)
+    lower_band = sma - (std * std_dev)
+    return upper_band, sma, lower_band
+
+
+def calcular_atr(high, low, close, period=14):
+    """Calcula Average True Range manualmente"""
+    high_low = high - low
+    high_close = np.abs(high - close.shift())
+    low_close = np.abs(low - close.shift())
+    
+    ranges = pd.concat([high_low, high_close, low_close], axis=1)
+    true_range = np.max(ranges, axis=1)
+    atr = true_range.rolling(period).mean()
+    return atr
+
+
+def calcular_stochastic(high, low, close, period=14):
+    """Calcula Stochastic Oscillator manualmente"""
+    lowest_low = low.rolling(window=period).min()
+    highest_high = high.rolling(window=period).max()
+    
+    k = 100 * ((close - lowest_low) / (highest_high - lowest_low))
+    d = k.rolling(window=3).mean()
+    
+    return k, d
+
+
+def calcular_indicadores_tecnicos(data: pd.DataFrame) -> pd.DataFrame:
+    """Calcula indicadores técnicos avanzados - Versión manual robusta"""
+    df = data.copy()
+    
+    try:
+        # RSI
+        df['RSI'] = calcular_rsi(df['Close'], period=14)
+        
+        # MACD
+        macd, macd_signal, macd_hist = calcular_macd(df['Close'])
+        df['MACD'] = macd
+        df['MACD_Signal'] = macd_signal
+        df['MACD_Hist'] = macd_hist
+        
+        # Bollinger Bands
+        bb_high, bb_mid, bb_low = calcular_bollinger_bands(df['Close'])
+        df['BB_High'] = bb_high
+        df['BB_Mid'] = bb_mid
+        df['BB_Low'] = bb_low
+        
+        # Moving Averages
+        df['SMA_20'] = df['Close'].rolling(window=20).mean()
+        df['SMA_50'] = df['Close'].rolling(window=50).mean()
+        df['SMA_200'] = df['Close'].rolling(window=200).mean()
+        df['EMA_12'] = df['Close'].ewm(span=12, adjust=False).mean()
+        df['EMA_26'] = df['Close'].ewm(span=26, adjust=False).mean()
+        
+        # ATR
+        df['ATR'] = calcular_atr(df['High'], df['Low'], df['Close'])
+        
+        # Volume indicators
+        df['Volume_SMA'] = df['Volume'].rolling(window=20).mean()
+        
+        # Stochastic Oscillator
+        stoch_k, stoch_d = calcular_stochastic(df['High'], df['Low'], df['Close'])
+        df['Stoch_K'] = stoch_k
+        df['Stoch_D'] = stoch_d
+        
+    except Exception as e:
+        st.warning(f"Algunos indicadores técnicos no pudieron calcularse: {str(e)}")
+    
+    return df
+
+
 def calcular_metricas_avanzadas(precios: pd.Series, benchmark: pd.Series = None, rf_rate: float = 0.045) -> dict:
     """Calcula métricas financieras avanzadas"""
     if precios is None or precios.empty:
@@ -217,46 +313,6 @@ def calcular_metricas_avanzadas(precios: pd.Series, benchmark: pd.Series = None,
         "avg_gain": avg_gain,
         "avg_loss": avg_loss,
     }
-
-
-def calcular_indicadores_tecnicos(data: pd.DataFrame) -> pd.DataFrame:
-    """Calcula indicadores técnicos avanzados"""
-    df = data.copy()
-    
-    # RSI
-    df['RSI'] = ta.momentum.RSIIndicator(df['Close'], window=14).rsi()
-    
-    # MACD
-    macd = ta.trend.MACD(df['Close'])
-    df['MACD'] = macd.macd()
-    df['MACD_Signal'] = macd.macd_signal()
-    df['MACD_Hist'] = macd.macd_diff()
-    
-    # Bollinger Bands
-    bollinger = ta.volatility.BollingerBands(df['Close'])
-    df['BB_High'] = bollinger.bollinger_hband()
-    df['BB_Mid'] = bollinger.bollinger_mavg()
-    df['BB_Low'] = bollinger.bollinger_lband()
-    
-    # Moving Averages
-    df['SMA_20'] = ta.trend.SMAIndicator(df['Close'], window=20).sma_indicator()
-    df['SMA_50'] = ta.trend.SMAIndicator(df['Close'], window=50).sma_indicator()
-    df['SMA_200'] = ta.trend.SMAIndicator(df['Close'], window=200).sma_indicator()
-    df['EMA_12'] = ta.trend.EMAIndicator(df['Close'], window=12).ema_indicator()
-    df['EMA_26'] = ta.trend.EMAIndicator(df['Close'], window=26).ema_indicator()
-    
-    # ATR (Average True Range)
-    df['ATR'] = ta.volatility.AverageTrueRange(df['High'], df['Low'], df['Close']).average_true_range()
-    
-    # Volume indicators
-    df['Volume_SMA'] = df['Volume'].rolling(window=20).mean()
-    
-    # Stochastic Oscillator
-    stoch = ta.momentum.StochasticOscillator(df['High'], df['Low'], df['Close'])
-    df['Stoch_K'] = stoch.stoch()
-    df['Stoch_D'] = stoch.stoch_signal()
-    
-    return df
 
 
 @st.cache_data(show_spinner=False, ttl=1800)
@@ -430,7 +486,11 @@ if data_accion.empty:
 
 # Aplicar indicadores técnicos
 if show_technical:
-    data_accion = calcular_indicadores_tecnicos(data_accion)
+    with st.spinner("📊 Calculando indicadores técnicos..."):
+        data_accion = calcular_indicadores_tecnicos(data_accion)
+
+# Continúa con el resto del código exactamente igual...
+# (El resto del código permanece idéntico desde "Info de la empresa" hasta el final)
 
 # =============================
 # Info de la empresa
@@ -1281,3 +1341,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 st.balloons()
+
+
+
+
